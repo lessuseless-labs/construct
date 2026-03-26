@@ -108,4 +108,73 @@ export const cases: EvalCase[] = [
     ],
     tags: ["error-handling"],
   },
+
+  // --- Nushell ---
+  {
+    id: "nu-arithmetic",
+    prompt: "use nushell to calculate 2 + 3",
+    checks: [
+      code_contains("nu"),
+      code_uses_exec,
+      result_contains("5"),
+    ],
+    tags: ["nushell", "basic"],
+  },
+  {
+    id: "nu-json-parse",
+    prompt:
+      'use nushell to parse the JSON \'{"name":"construct","version":"0.1.0"}\' and return the name field',
+    checks: [
+      code_contains("nu"),
+      code_uses_exec,
+      result_contains("construct"),
+    ],
+    tags: ["nushell", "data"],
+  },
+  {
+    id: "nu-pipeline",
+    prompt:
+      "use nushell to list files in /tmp, filter to only directories, and count them",
+    checks: [
+      code_contains("nu"),
+      code_uses_exec,
+      result_is_not_error,
+    ],
+    tags: ["nushell", "pipeline"],
+  },
+  {
+    id: "nu-table",
+    prompt:
+      'use nushell to create a table with columns "name" and "age" containing two rows: Alice/30 and Bob/25, then sort by age',
+    checks: [
+      code_contains("nu"),
+      code_uses_exec,
+      result_contains("Bob"),
+      result_contains("Alice"),
+      result_is_not_error,
+    ],
+    tags: ["nushell", "structured-data"],
+  },
+  {
+    id: "nu-string-ops",
+    prompt:
+      "use nushell to split the string 'hello-world-foo-bar' by dashes and return the third element",
+    checks: [
+      code_contains("nu"),
+      code_uses_exec,
+      result_contains("foo"),
+    ],
+    tags: ["nushell", "strings"],
+  },
+  {
+    id: "nu-csv",
+    prompt:
+      'use nushell to parse this CSV data and return the sum of the values column: "name,value\\nA,10\\nB,20\\nC,30"',
+    checks: [
+      code_contains("nu"),
+      code_uses_exec,
+      result_contains("60"),
+    ],
+    tags: ["nushell", "data"],
+  },
 ];
