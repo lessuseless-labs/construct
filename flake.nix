@@ -93,10 +93,16 @@
                 --prefix PATH : ${lib.makeBinPath ([ pkgs.deno ] ++ sandboxTools)}
             '';
           };
+          # MCP server — standalone node script with gun on PATH
+          construct-mcp = pkgs.writeShellScriptBin "construct-mcp" ''
+            export GUN_PATH="${gun-with-tools}/bin/gun"
+            export PATH="${lib.makeBinPath ([ pkgs.deno ] ++ sandboxTools)}:$PATH"
+            exec ${pkgs.nodejs_22}/bin/node ${./ts/dist/construct-mcp.js} "$@"
+          '';
         in
         {
           packages = {
-            inherit gun-unwrapped tool-manifest;
+            inherit gun-unwrapped tool-manifest construct-mcp;
             default = gun-unwrapped;
           };
 

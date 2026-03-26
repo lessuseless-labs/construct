@@ -8,9 +8,12 @@
       "import": "./dist/index.js"
     }
   },
+  "bin": {
+    "construct-mcp": "./dist/construct-mcp.js"
+  },
   "files": ["dist"],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node -e \"const f='dist/construct-mcp.js',c=require('fs').readFileSync(f,'utf8').replace(/^(#!.*\\n)+/,'');require('fs').writeFileSync(f,'#!/usr/bin/env node\\n'+c);require('fs').chmodSync(f,0o755)\"",
     "test": "tsx test/e2e.ts",
     "test:integration": "tsx test/integration.ts",
     "demo": "tsx examples/demo.ts",
@@ -20,15 +23,17 @@
     "mcp": "tsx src/mcp.ts",
     "prepublishOnly": "pnpm build"
   },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.0",
+    "zod": "^4.0.0"
+  },
   "peerDependencies": {
     "@cloudflare/codemode": "^0.3.0",
-    "ai": "^6.0.0",
-    "zod": "^4.0.0"
+    "ai": "^6.0.0"
   },
   "peerDependenciesMeta": {
     "@cloudflare/codemode": { "optional": true },
-    "ai": { "optional": true },
-    "zod": { "optional": true }
+    "ai": { "optional": true }
   },
   "devDependencies": {
     "@cloudflare/codemode": "^0.3.2",
@@ -38,7 +43,6 @@
     "tsx": "^4.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.7.0",
-    "@types/node": "^22.0.0",
-    "@modelcontextprotocol/sdk": "^1.25.0"
+    "@types/node": "^22.0.0"
   }
 }

@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "construct": {
+      "command": "construct-mcp"
+    }
+  }
+}
