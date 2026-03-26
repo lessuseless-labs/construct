@@ -16,6 +16,7 @@
     "demo": "tsx examples/demo.ts",
     "demo:basic": "tsx examples/basic.ts",
     "eval": "tsx eval/runner.ts",
+    "bench:context": "tsx bench/context-cost.ts",
     "prepublishOnly": "pnpm build"
   },
   "peerDependencies": {
