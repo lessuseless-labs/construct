@@ -17,6 +17,7 @@
     "demo:basic": "tsx examples/basic.ts",
     "eval": "tsx eval/runner.ts",
     "bench:context": "tsx bench/context-cost.ts",
+    "mcp": "tsx src/mcp.ts",
     "prepublishOnly": "pnpm build"
   },
   "peerDependencies": {
@@ -37,6 +38,7 @@
     "tsx": "^4.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "@modelcontextprotocol/sdk": "^1.25.0"
   }
 }
