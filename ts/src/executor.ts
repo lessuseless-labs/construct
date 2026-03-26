@@ -22,6 +22,19 @@ export interface NixExecutorOptions {
   timeout?: number;
 }
 
+/** Tool-specific syntax hints for tools LLMs commonly get wrong */
+const TOOL_HINTS: Record<string, string> = {
+  nushell: `  Usage: exec("nu", ["-c", "<nushell code>"])
+  IMPORTANT nushell syntax (v0.90+):
+    Arithmetic: nu -c "2 + 3"  (NOT "math eval")
+    Parse JSON: nu -c "'{\\"key\\":\\"val\\"}' | from json | get key"
+    Split string: nu -c "'a-b-c' | split row '-' | get 1"  (NOT "split '-'")
+    CSV from stdin: exec("nu", ["-c", "$in | from csv | ..."], { stdin: csvData })
+    List + filter: nu -c "ls /tmp | where type == dir | length"
+    Sort table: nu -c "[[name age]; [Alice 30] [Bob 25]] | sort-by age"
+    String interpolation: nu -c "let x = 5; $\\"result: ($x)\\""`,
+};
+
 export class NixExecutor implements Executor {
   #gunPath: string;
   #timeout: number;
@@ -67,6 +80,12 @@ export class NixExecutor implements Executor {
           toolCards += `  Package: ${tool.attr}\n`;
         }
         toolCards += `  Example: exec("${binary}", [<args>])\n`;
+      }
+
+      // Tool-specific hints for syntax LLMs commonly get wrong
+      const hints = TOOL_HINTS[tool.attr];
+      if (hints) {
+        toolCards += hints + "\n";
       }
     }
 
