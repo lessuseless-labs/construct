@@ -21,6 +21,7 @@
     "eval": "tsx eval/runner.ts",
     "bench:context": "tsx bench/context-cost.ts",
     "mcp": "tsx src/mcp.ts",
+    "eval:mcp": "tsx eval/mcp-test.ts",
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
