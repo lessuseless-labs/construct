@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build gun
+        run: nix build
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        working-directory: ts
+        run: pnpm install --frozen-lockfile
+
+      - name: Run e2e tests
+        working-directory: ts
+        run: pnpm test
+        env:
+          GUN_PATH: ${{ github.workspace }}/result/bin/gun
+
+      - name: Run integration tests
+        working-directory: ts
+        run: pnpm test:integration
+        env:
+          GUN_PATH: ${{ github.workspace }}/result/bin/gun
+
+      - name: Run basic demo
+        working-directory: ts
+        run: pnpm demo:basic
+        env:
+          GUN_PATH: ${{ github.workspace }}/result/bin/gun
+
+      - name: Build TypeScript package
+        working-directory: ts
+        run: pnpm build
