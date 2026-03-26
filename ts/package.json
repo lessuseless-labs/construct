@@ -1,0 +1,39 @@
+{
+  "name": "@construct/nix-executor",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "test": "tsx test/e2e.ts",
+    "test:integration": "tsx test/integration.ts",
+    "demo": "tsx examples/demo.ts",
+    "demo:basic": "tsx examples/basic.ts",
+    "prepublishOnly": "pnpm build"
+  },
+  "peerDependencies": {
+    "@cloudflare/codemode": "^0.3.0",
+    "ai": "^6.0.0",
+    "zod": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@cloudflare/codemode": { "optional": true },
+    "ai": { "optional": true },
+    "zod": { "optional": true }
+  },
+  "devDependencies": {
+    "@cloudflare/codemode": "^0.3.2",
+    "@ai-sdk/anthropic": "^2.0.0",
+    "ai": "^6.0.138",
+    "zod": "^4.3.6",
+    "tsx": "^4.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.7.0"
+  }
+}
