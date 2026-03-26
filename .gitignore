@@ -2,3 +2,5 @@
 result
 **/node_modules
 **/eval/results
+.mcp.json
+ts/dist

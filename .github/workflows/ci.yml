@@ -47,6 +47,12 @@ jobs:
         env:
           GUN_PATH: ${{ github.workspace }}/result/bin/gun
 
+      - name: Run MCP tests
+        working-directory: ts
+        run: pnpm eval:mcp
+        env:
+          GUN_PATH: ${{ github.workspace }}/result/bin/gun
+
       - name: Run basic demo
         working-directory: ts
         run: pnpm demo:basic

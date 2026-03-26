@@ -224,7 +224,11 @@ Example: async () => { const { stdout } = await exec("jq", ["-n", "2+3"]); retur
       });
 
       child.on("error", (err: Error) => {
-        done({ result: null, error: `Failed to spawn gun: ${err.message}` });
+        const hint =
+          err.message.includes("ENOENT")
+            ? `gun binary not found at "${this.#gunPath}". Install via: nix build github:lessuseless-labs/construct — or set GUN_PATH to the binary location.`
+            : `Failed to spawn gun: ${err.message}`;
+        done({ result: null, error: hint });
       });
 
       child.on("close", (exitCode: number | null) => {
