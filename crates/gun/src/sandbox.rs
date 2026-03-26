@@ -23,20 +23,18 @@ impl Sandbox {
             .write_all(RUNNER_SRC.as_bytes())
             .map_err(|e| format!("write runner: {e}"))?;
 
-        // Resolve deno — PATH first, then nix store
-        let deno_bin = which_or_nix("deno")?;
-
         let runner_path = runner_file.path().to_str().unwrap().to_string();
-        let mut child = Command::new(&deno_bin)
+
+        // deno is on PATH (provided by gun-with-tools wrapper)
+        let mut child = Command::new("deno")
             .args([
                 "run",
                 "--no-prompt",
-                // Permission lockdown — defense in depth
-                "--deny-net",
-                "--deny-env",
-                "--deny-run",
-                "--deny-write",
+                // Defense-in-depth flags — sandnix provides OS-level isolation,
+                // these are additional Deno-level constraints
                 "--deny-ffi",
+                "--deny-env",
+                "--allow-run",
                 &format!("--allow-read={runner_path},/nix/store"),
                 // Memory limit
                 "--v8-flags=--max-old-space-size=256",
@@ -81,25 +79,5 @@ impl Sandbox {
 
     pub fn kill(&mut self) {
         let _ = self.child.start_kill();
-    }
-}
-
-fn which_or_nix(name: &str) -> Result<String, String> {
-    // Check PATH
-    if let Ok(path) = which::which(name) {
-        return Ok(path.to_string_lossy().into_owned());
-    }
-
-    // Try nix path-info
-    let output = std::process::Command::new("nix")
-        .args(["path-info", &format!("nixpkgs#{name}")])
-        .output()
-        .map_err(|e| format!("nix path-info: {e}"))?;
-
-    if output.status.success() {
-        let store_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        Ok(format!("{store_path}/bin/{name}"))
-    } else {
-        Err(format!("{name} not found on PATH or in nix store"))
     }
 }

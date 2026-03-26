@@ -6,7 +6,7 @@
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createCodeTool } from "@cloudflare/codemode/ai";
-import { NixExecutor, nixRunProvider } from "../src/index.ts";
+import { NixExecutor } from "../src/index.ts";
 
 const prompt = process.argv[2];
 if (!prompt) {
@@ -30,15 +30,8 @@ const executor = new NixExecutor({
   gunPath: process.env.GUN_PATH,
 });
 
-const nixTools = nixRunProvider([
-  "nixpkgs#jq",
-  "nixpkgs#ripgrep",
-  "nixpkgs#hello",
-  "nixpkgs#cowsay",
-]);
-
 const codeTool = createCodeTool({
-  tools: [nixTools],
+  tools: {},
   executor,
 });
 
@@ -46,8 +39,17 @@ console.log(`Prompt: ${prompt}\n`);
 
 const result = await generateText({
   model: github.chat("gpt-4o"),
-  system:
-    "You are a helpful assistant. Use the codemode tool to accomplish tasks by writing JavaScript code. Call tools directly by their namespace — for example: `await nix.run({...})`. Do NOT prefix with `functions.` — just use the namespace directly. Always explain the result after running code.",
+  system: `You are a helpful assistant. Use the codemode tool to accomplish tasks by writing JavaScript code.
+
+Inside the sandbox, you have an exec() function to run commands:
+  await exec(cmd, args, opts?) → { stdout, stderr, code }
+
+Available binaries: jq, rg (ripgrep), echo, cat, and other coreutils.
+
+Example: async () => { const { stdout } = await exec("jq", ["-n", "1+1"]); return stdout.trim(); }
+
+Call tools directly — do NOT prefix with "functions." — just use exec() directly.
+Always explain the result after running code.`,
   prompt,
   tools: { codemode: codeTool },
   maxSteps: 10,
@@ -56,7 +58,7 @@ const result = await generateText({
 // Show tool executions
 for (const step of result.steps) {
   for (const tc of step.toolCalls) {
-    console.log(`> ${tc.toolName}:`, tc.input.code);
+    console.log(`> ${tc.toolName}:`, (tc as { input?: { code?: string } }).input?.code);
   }
   for (const tr of step.toolResults) {
     const output = tr.output as { result?: unknown };

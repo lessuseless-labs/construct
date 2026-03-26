@@ -6,7 +6,3 @@ export type { Executor, ResolvedProvider, ExecuteResult } from "@cloudflare/code
 
 // Convenience re-export (requires peer deps)
 export { createCodeTool } from "@cloudflare/codemode/ai";
-
-// Tools
-export { nixRunProvider } from "./tools/index.ts";
-export type { NixRunOptions } from "./tools/index.ts";

@@ -63,7 +63,37 @@ function captureConsole(): void {
   console.debug = capture("debug");
 }
 
-// --- tool call proxy (milestone 2 — stubbed for now) ---
+// --- exec built-in (runs binaries inside the sandbox) ---
+
+async function exec(
+  cmd: string,
+  args: string[],
+  opts?: { stdin?: string; timeout?: number },
+): Promise<{ stdout: string; stderr: string; code: number }> {
+  const command = new Deno.Command(cmd, {
+    args,
+    stdin: opts?.stdin ? "piped" : "null",
+    stdout: "piped",
+    stderr: "piped",
+  });
+
+  const process = command.spawn();
+
+  if (opts?.stdin) {
+    const writer = process.stdin.getWriter();
+    await writer.write(new TextEncoder().encode(opts.stdin));
+    await writer.close();
+  }
+
+  const output = await process.output();
+  return {
+    stdout: new TextDecoder().decode(output.stdout),
+    stderr: new TextDecoder().decode(output.stderr),
+    code: output.code,
+  };
+}
+
+// --- tool call proxy ---
 
 let nextId = 1;
 const pending = new Map<number | string, {
@@ -136,8 +166,8 @@ async function main(): Promise<void> {
 
   const params = msg.params as InitializeParams;
 
-  // 2. Build provider globals
-  const globals: Record<string, unknown> = {};
+  // 2. Build globals — exec is always available, providers are proxied
+  const globals: Record<string, unknown> = { exec };
   for (const p of params.providers ?? []) {
     globals[p.name] = createProviderProxy(p.name, p.tools, p.positionalArgs ?? false);
   }

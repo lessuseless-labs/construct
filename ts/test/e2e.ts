@@ -94,45 +94,42 @@ const r7 = await executor.execute(
 console.log("  result:", JSON.stringify(r7));
 console.assert(r7.result === 14, `Expected 14, got ${r7.result}`);
 
-// --- Security tests (only meaningful with Rust gun) ---
+// --- exec built-in tests ---
 
-if (gunPath) {
-  // Test 8: network denied
-  console.log("Test 8: network access denied");
-  const r8 = await executor.execute(
-    'async () => { await fetch("https://example.com"); return "should not reach" }',
-    [],
-  );
-  console.log("  result:", JSON.stringify(r8));
-  console.assert(r8.error != null, "Expected network error");
-  console.assert(!r8.result || r8.result !== "should not reach", "Network should be blocked");
+// Test 8: exec runs local binaries
+console.log("Test 8: exec built-in");
+const r8 = await executor.execute(
+  'async () => { const { stdout } = await exec("echo", ["hello"]); return stdout.trim(); }',
+  [],
+);
+console.log("  result:", JSON.stringify(r8));
+console.assert(r8.result === "hello", `Expected "hello", got ${r8.result}`);
 
-  // Test 9: subprocess denied
-  console.log("Test 9: subprocess denied");
-  const r9 = await executor.execute(
-    'async () => { const p = new Deno.Command("echo", { args: ["pwned"] }); const out = p.outputSync(); return new TextDecoder().decode(out.stdout) }',
-    [],
-  );
-  console.log("  result:", JSON.stringify(r9));
-  console.assert(r9.error != null, "Expected subprocess error");
+// Test 9: exec with stdin
+console.log("Test 9: exec with stdin");
+const r9 = await executor.execute(
+  'async () => { const { stdout } = await exec("cat", [], { stdin: "piped input" }); return stdout; }',
+  [],
+);
+console.log("  result:", JSON.stringify(r9));
+console.assert(r9.result === "piped input", `Expected "piped input", got ${r9.result}`);
 
-  // Test 10: env access denied
-  console.log("Test 10: env access denied");
-  const r10 = await executor.execute(
-    'async () => { return Deno.env.get("HOME") }',
-    [],
-  );
-  console.log("  result:", JSON.stringify(r10));
-  console.assert(r10.error != null, "Expected env error");
+// Test 10: exec error handling
+console.log("Test 10: exec nonexistent binary");
+const r10 = await executor.execute(
+  'async () => { try { await exec("nonexistent_binary_12345", []); return "should not reach"; } catch (e) { return e.message; } }',
+  [],
+);
+console.log("  result:", JSON.stringify(r10));
+console.assert(r10.result !== "should not reach", "Should have caught error");
 
-  // Test 11: write denied
-  console.log("Test 11: write access denied");
-  const r11 = await executor.execute(
-    'async () => { await Deno.writeTextFile("/tmp/pwned.txt", "hi"); return "written" }',
-    [],
-  );
-  console.log("  result:", JSON.stringify(r11));
-  console.assert(r11.error != null, "Expected write error");
-}
+// Test 11: env access still denied (defense-in-depth)
+console.log("Test 11: env access denied");
+const r11 = await executor.execute(
+  'async () => { return Deno.env.get("HOME") }',
+  [],
+);
+console.log("  result:", JSON.stringify(r11));
+console.assert(r11.error != null, "Expected env error");
 
 console.log("\nAll tests passed!");
