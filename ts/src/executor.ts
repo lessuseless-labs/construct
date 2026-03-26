@@ -97,6 +97,8 @@ Inside the sandbox, use exec() to run CLI tools:
 
 Available tools:
 ${toolCards}
+If unsure about a tool's syntax, run exec("tldr", ["<tool>"]) to get usage examples.
+
 Write an async arrow function in JavaScript that returns the result.
 Do NOT use TypeScript syntax — no type annotations, interfaces, or generics.
 Do NOT define named functions then call them — just write the arrow function body directly.

@@ -19,7 +19,7 @@
           craneLib = inputs.crane.mkLib pkgs;
 
           # Tools available inside the sandbox (deno is runtime, not a user tool)
-          sandboxTools = with pkgs; [ jq ripgrep coreutils nushell ];
+          sandboxTools = with pkgs; [ jq ripgrep coreutils nushell tealdeer ];
 
           # Generate tool manifest from package metadata
           tool-manifest = pkgs.runCommand "tool-manifest" {
