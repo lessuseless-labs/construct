@@ -8,10 +8,10 @@
 
 import { execSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { generateText } from "ai";
+import { generateText, tool } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
-import { createCodeTool } from "@cloudflare/codemode/ai";
-import { NixExecutor } from "../src/index.ts";
+import { z } from "zod";
+import { NixExecutor, normalizeCode } from "../src/index.ts";
 import { cases } from "./cases.ts";
 import type { EvalContext } from "./checks.ts";
 import type { EvalCase } from "./cases.ts";
@@ -39,7 +39,18 @@ const github = createOpenAI({
 
 const executor = new NixExecutor({ gunPath: process.env.GUN_PATH });
 const description = executor.getToolDescription();
-const codeTool = createCodeTool({ tools: {}, executor, description });
+const codeTool = tool({
+  description,
+  parameters: z.object({
+    code: z.string().describe("JavaScript async arrow function to execute"),
+  }),
+  execute: async ({ code }) => {
+    const normalized = normalizeCode(code);
+    const result = await executor.execute(normalized, []);
+    if (result.error) throw new Error(result.error);
+    return { code: normalized, result: result.result, logs: result.logs };
+  },
+});
 
 const system =
   "You are a helpful assistant. Use the codemode tool to accomplish tasks by writing JavaScript code. Do NOT prefix calls with 'functions.' — use exec() directly.";

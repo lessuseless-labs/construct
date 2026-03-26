@@ -3,7 +3,7 @@
 
 import { spawn, execFileSync } from "node:child_process";
 import { createInterface } from "node:readline";
-import type { Executor, ResolvedProvider, ExecuteResult } from "@cloudflare/codemode";
+import type { Executor, ResolvedProvider, ExecuteResult } from "./codemode/types.ts";
 
 interface ToolManifest {
   tools: Array<{

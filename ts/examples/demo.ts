@@ -1,12 +1,12 @@
-// demo.ts — Full LLM demo via GitHub Models + createCodeTool + NixExecutor
+// demo.ts — Full LLM demo via GitHub Models + NixExecutor
 //
 // Usage:
 //   GITHUB_TOKEN=$(gh auth token) pnpm demo "use jq to calculate 2+3"
 //
-import { generateText } from "ai";
+import { generateText, tool } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
-import { createCodeTool } from "@cloudflare/codemode/ai";
-import { NixExecutor } from "../src/index.ts";
+import { z } from "zod";
+import { NixExecutor, normalizeCode } from "../src/index.ts";
 
 const prompt = process.argv[2];
 if (!prompt) {
@@ -30,13 +30,19 @@ const executor = new NixExecutor({
   gunPath: process.env.GUN_PATH,
 });
 
-// Dynamic tool description from the manifest embedded in gun
 const description = executor.getToolDescription();
 
-const codeTool = createCodeTool({
-  tools: {},
-  executor,
+const codeTool = tool({
   description,
+  parameters: z.object({
+    code: z.string().describe("JavaScript async arrow function to execute"),
+  }),
+  execute: async ({ code }) => {
+    const normalized = normalizeCode(code);
+    const result = await executor.execute(normalized, []);
+    if (result.error) throw new Error(result.error);
+    return { code: normalized, result: result.result, logs: result.logs };
+  },
 });
 
 console.log(`Prompt: ${prompt}\n`);

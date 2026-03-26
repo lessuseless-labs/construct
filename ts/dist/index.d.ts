@@ -1,6 +1,16 @@
-import { Executor, ResolvedProvider, ExecuteResult } from '@cloudflare/codemode';
-export { ExecuteResult, Executor, ResolvedProvider } from '@cloudflare/codemode';
-export { createCodeTool } from '@cloudflare/codemode/ai';
+interface ExecuteResult {
+    result: unknown;
+    error?: string;
+    logs?: string[];
+}
+interface ResolvedProvider {
+    name: string;
+    fns: Record<string, (...args: unknown[]) => Promise<unknown>>;
+    positionalArgs?: boolean;
+}
+interface Executor {
+    execute(code: string, providersOrFns: ResolvedProvider[] | Record<string, (...args: unknown[]) => Promise<unknown>>): Promise<ExecuteResult>;
+}
 
 interface ToolManifest {
     tools: Array<{
@@ -27,4 +37,6 @@ declare class NixExecutor implements Executor {
     execute(code: string, providersOrFns: ResolvedProvider[] | Record<string, (...args: unknown[]) => Promise<unknown>>): Promise<ExecuteResult>;
 }
 
-export { NixExecutor, type NixExecutorOptions };
+declare function normalizeCode(code: string): string;
+
+export { type ExecuteResult, type Executor, NixExecutor, type NixExecutorOptions, type ResolvedProvider, normalizeCode };

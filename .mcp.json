@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "construct": {
+      "command": "nix",
+      "args": ["run", "github:lessuseless-labs/construct#construct-mcp"]
+    }
+  }
+}

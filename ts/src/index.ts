@@ -1,8 +1,6 @@
 export { NixExecutor } from "./executor.ts";
 export type { NixExecutorOptions } from "./executor.ts";
 
-// Re-export codemode types
-export type { Executor, ResolvedProvider, ExecuteResult } from "@cloudflare/codemode";
-
-// Convenience re-export (requires peer deps)
-export { createCodeTool } from "@cloudflare/codemode/ai";
+// Core types and utilities
+export { normalizeCode } from "./codemode/index.ts";
+export type { Executor, ResolvedProvider, ExecuteResult } from "./codemode/index.ts";

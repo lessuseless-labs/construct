@@ -26,21 +26,18 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.0",
+    "acorn": "^8.14.0",
     "zod": "^4.0.0"
   },
   "peerDependencies": {
-    "@cloudflare/codemode": "^0.3.0",
     "ai": "^6.0.0"
   },
   "peerDependenciesMeta": {
-    "@cloudflare/codemode": { "optional": true },
     "ai": { "optional": true }
   },
   "devDependencies": {
-    "@cloudflare/codemode": "^0.3.2",
     "@ai-sdk/openai": "^3.0.0",
     "ai": "^6.0.138",
-    "zod": "^4.3.6",
     "tsx": "^4.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.7.0",
