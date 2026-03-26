@@ -162,6 +162,22 @@ pnpm eval                    # LLM eval harness
 | **Security** | Trust each server individually | Kernel-sandboxed, one boundary |
 | **Capability** | Whatever someone wrapped | 120,000+ nixpkgs packages |
 
+### Context window cost at scale
+
+Every MCP tool schema eats tokens before the user says anything. construct's cost is fixed.
+
+```
+MCP servers    Tools    Context cost    construct
+───────────────────────────────────────────────────
+  1 server       3          204 tokens     289 tokens (fixed)
+  5 servers     13        1,019 tokens     289 tokens (3.5x less)
+ 10 servers     26        2,038 tokens     289 tokens (7x less)
+ 20 servers     52        4,076 tokens     289 tokens (14x less)
+ 50 servers    130       10,190 tokens     289 tokens (35x less)
+```
+
+Run `pnpm bench:context` to reproduce.
+
 ## Credits
 
 - [codemode](https://github.com/cloudflare/agents/tree/main/packages/codemode) by Cloudflare — the original insight that LLMs should write code, not call tools one at a time
