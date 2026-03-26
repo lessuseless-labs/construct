@@ -4,6 +4,8 @@
 
 **every program you've never heard of, one prompt away**
 
+<img src="assets/lots_of_guns.png" alt="Lots of guns." width="600" />
+
 [![CI](https://github.com/lessuseless-labs/construct/actions/workflows/ci.yml/badge.svg)](https://github.com/lessuseless-labs/construct/actions/workflows/ci.yml)
 
 *nixpkgs is the API. gun is the runtime.*
