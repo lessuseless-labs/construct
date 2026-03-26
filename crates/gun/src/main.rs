@@ -12,8 +12,17 @@ const MAX_LINE_BYTES: usize = 10 * 1024 * 1024;
 /// Max allowed timeout (5 minutes)
 const MAX_TIMEOUT_MS: u64 = 300_000;
 
+/// Tool manifest — generated at nix build time from sandboxTools metadata
+const MANIFEST: &str = include_str!("../../../tool-manifest.json");
+
 #[tokio::main]
 async fn main() {
+    // Subcommand: print manifest and exit
+    if std::env::args().nth(1).as_deref() == Some("manifest") {
+        print!("{MANIFEST}");
+        return;
+    }
+
     let result = run().await;
 
     // Output is the JSON-RPC response — always exactly one line

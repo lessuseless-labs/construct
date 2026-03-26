@@ -30,26 +30,21 @@ const executor = new NixExecutor({
   gunPath: process.env.GUN_PATH,
 });
 
+// Dynamic tool description from the manifest embedded in gun
+const description = executor.getToolDescription();
+
 const codeTool = createCodeTool({
   tools: {},
   executor,
+  description,
 });
 
 console.log(`Prompt: ${prompt}\n`);
 
 const result = await generateText({
   model: github.chat("gpt-4o"),
-  system: `You are a helpful assistant. Use the codemode tool to accomplish tasks by writing JavaScript code.
-
-Inside the sandbox, you have an exec() function to run commands:
-  await exec(cmd, args, opts?) → { stdout, stderr, code }
-
-Available binaries: jq, rg (ripgrep), echo, cat, and other coreutils.
-
-Example: async () => { const { stdout } = await exec("jq", ["-n", "1+1"]); return stdout.trim(); }
-
-Call tools directly — do NOT prefix with "functions." — just use exec() directly.
-Always explain the result after running code.`,
+  system:
+    "You are a helpful assistant. Use the codemode tool to accomplish tasks. Do NOT prefix calls with 'functions.' — use exec() directly. Always explain the result.",
   prompt,
   tools: { codemode: codeTool },
   maxSteps: 10,

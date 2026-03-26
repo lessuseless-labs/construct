@@ -1,9 +1,19 @@
 // NixExecutor — implements codemode's Executor interface
 // Spawns gun, sends execute request over stdin, reads result from stdout.
 
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import type { Executor, ResolvedProvider, ExecuteResult } from "@cloudflare/codemode";
+
+interface ToolManifest {
+  tools: Array<{
+    attr: string;
+    description: string;
+    mainProgram: string | null;
+    homepage: string;
+    binaries: string[];
+  }>;
+}
 
 export interface NixExecutorOptions {
   /** Path to the gun binary. Defaults to finding bin/gun relative to this file. */
@@ -15,10 +25,64 @@ export interface NixExecutorOptions {
 export class NixExecutor implements Executor {
   #gunPath: string;
   #timeout: number;
+  #manifestCache: ToolManifest | null = null;
 
   constructor(options: NixExecutorOptions = {}) {
-    this.#gunPath = options.gunPath ?? new URL("../../bin/gun", import.meta.url).pathname;
+    this.#gunPath = options.gunPath ?? "gun";
     this.#timeout = options.timeout ?? 30000;
+  }
+
+  /** Get the tool manifest embedded in the gun binary */
+  getManifest(): ToolManifest {
+    if (!this.#manifestCache) {
+      const output = execFileSync(this.#gunPath, ["manifest"], {
+        encoding: "utf-8",
+        timeout: 5000,
+      });
+      this.#manifestCache = JSON.parse(output);
+    }
+    return this.#manifestCache!;
+  }
+
+  /** Generate a tool description string for LLM consumption */
+  getToolDescription(): string {
+    const manifest = this.getManifest();
+
+    let toolCards = "";
+    for (const tool of manifest.tools) {
+      const binary = tool.mainProgram ?? tool.binaries[0] ?? tool.attr;
+
+      if (tool.binaries.length > 20) {
+        // Multi-binary package (like coreutils) — summarize
+        const common = tool.binaries
+          .filter((b) => !["[", "test", "true", "false", "coreutils"].includes(b))
+          .slice(0, 25)
+          .join(", ");
+        toolCards += `\n## ${tool.attr} — ${tool.description}\n`;
+        toolCards += `  Binaries: ${common}, ...\n`;
+        toolCards += `  (run exec("<cmd>", ["--help"]) for usage)\n`;
+      } else {
+        toolCards += `\n## ${binary} — ${tool.description}\n`;
+        if (binary !== tool.attr) {
+          toolCards += `  Package: ${tool.attr}\n`;
+        }
+        toolCards += `  Example: exec("${binary}", [<args>])\n`;
+      }
+    }
+
+    return `Execute code to achieve a goal.
+
+Inside the sandbox, use exec() to run CLI tools:
+  exec(cmd, args, opts?) → Promise<{ stdout, stderr, code }>
+  opts: { stdin?: string }
+
+Available tools:
+${toolCards}
+Write an async arrow function in JavaScript that returns the result.
+Do NOT use TypeScript syntax — no type annotations, interfaces, or generics.
+Do NOT define named functions then call them — just write the arrow function body directly.
+
+Example: async () => { const { stdout } = await exec("jq", ["-n", "2+3"]); return stdout.trim(); }`;
   }
 
   async execute(

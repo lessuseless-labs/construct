@@ -18,6 +18,48 @@
         let
           craneLib = inputs.crane.mkLib pkgs;
 
+          # Tools available inside the sandbox (deno is runtime, not a user tool)
+          sandboxTools = with pkgs; [ jq ripgrep coreutils ];
+
+          # Generate tool manifest from package metadata
+          tool-manifest = pkgs.runCommand "tool-manifest" {
+            nativeBuildInputs = [ pkgs.jq ];
+          } ''
+            echo '{"tools":[' > $out
+
+            first=true
+            ${lib.concatMapStringsSep "\n" (pkg:
+              let
+                description = pkg.meta.description or "";
+                mainProgram = pkg.meta.mainProgram or null;
+                homepage = pkg.meta.homepage or "";
+                attr = pkg.pname or pkg.name or "unknown";
+              in ''
+                # List binaries
+                bins="[]"
+                if [ -d "${pkg}/bin" ]; then
+                  bins=$(ls -1 "${pkg}/bin" | jq -R . | jq -s .)
+                fi
+
+                if [ "$first" = true ]; then
+                  first=false
+                else
+                  echo ',' >> $out
+                fi
+
+                jq -n \
+                  --arg attr "${attr}" \
+                  --arg description ${lib.escapeShellArg description} \
+                  ${if mainProgram != null then ''--arg mainProgram "${mainProgram}"'' else ''--argjson mainProgram null''} \
+                  --arg homepage "${homepage}" \
+                  --argjson binaries "$bins" \
+                  '{attr: $attr, description: $description, mainProgram: $mainProgram, homepage: $homepage, binaries: $binaries}' >> $out
+              ''
+            ) sandboxTools}
+
+            echo ']}' >> $out
+          '';
+
           src = lib.cleanSourceWith {
             src = craneLib.path ./.;
             filter = path: type:
@@ -28,6 +70,11 @@
           commonArgs = {
             inherit src;
             strictDeps = true;
+
+            # Copy manifest into source tree before cargo build
+            preBuild = ''
+              cp ${tool-manifest} tool-manifest.json
+            '';
           };
 
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
@@ -36,24 +83,21 @@
             inherit cargoArtifacts;
           });
 
-          # Tools available inside the sandbox
-          sandboxTools = with pkgs; [ deno jq ripgrep coreutils ];
-
-          # gun with tools on PATH
+          # gun with tools + deno on PATH
           gun-with-tools = pkgs.symlinkJoin {
             name = "gun-with-tools";
-            paths = [ gun-unwrapped ] ++ sandboxTools;
+            paths = [ gun-unwrapped pkgs.deno ] ++ sandboxTools;
             nativeBuildInputs = [ pkgs.makeWrapper ];
             postBuild = ''
               wrapProgram $out/bin/gun \
-                --prefix PATH : ${lib.makeBinPath sandboxTools}
+                --prefix PATH : ${lib.makeBinPath ([ pkgs.deno ] ++ sandboxTools)}
             '';
           };
         in
         {
           packages = {
-            inherit gun-unwrapped;
-            default = gun-unwrapped; # sandnixApps.gun overrides when sandnix is available
+            inherit gun-unwrapped tool-manifest;
+            default = gun-unwrapped;
           };
 
           sandnixApps.gun = {
