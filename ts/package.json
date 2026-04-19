@@ -14,8 +14,8 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsup && node -e \"const f='dist/construct-mcp.js',c=require('fs').readFileSync(f,'utf8').replace(/^(#!.*\\n)+/,'');require('fs').writeFileSync(f,'#!/usr/bin/env node\\n'+c);require('fs').chmodSync(f,0o755)\"",
-    "test": "tsx test/e2e.ts",
-    "test:integration": "tsx test/integration.ts",
+    "test": "node --import tsx --test test/e2e.ts",
+    "test:integration": "node --import tsx --test test/integration.ts",
     "demo": "tsx examples/demo.ts",
     "demo:basic": "tsx examples/basic.ts",
     "eval": "tsx eval/runner.ts",
