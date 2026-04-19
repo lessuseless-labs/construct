@@ -26,6 +26,9 @@ jobs:
       - name: Install deno
         run: nix profile install nixpkgs#deno
 
+      - name: Run runner unit tests
+        run: deno test --allow-run=echo,cat,false,sh --allow-read runner/runner_test.ts
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:

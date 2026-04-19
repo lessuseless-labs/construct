@@ -2,8 +2,6 @@
 // Reads an `initialize` JSON-RPC message from stdin, evaluates the code,
 // and writes an `execute/result` message to stdout.
 
-import { readLines } from "https://deno.land/std@0.224.0/io/read_lines.ts";
-
 interface InitializeParams {
   code: string;
   providers: Array<{
@@ -35,7 +33,12 @@ function writeLine(obj: unknown): void {
   Deno.stdout.writeSync(encoder.encode(JSON.stringify(obj) + "\n"));
 }
 
-async function* readJsonLines(): AsyncGenerator<JsonRpcRequest | JsonRpcResponse> {
+// deno-lint-ignore no-explicit-any
+type ReadLinesFn = (r: any) => AsyncIterableIterator<string>;
+
+async function* readJsonLines(
+  readLines: ReadLinesFn,
+): AsyncGenerator<JsonRpcRequest | JsonRpcResponse> {
   for await (const line of readLines(Deno.stdin)) {
     const trimmed = line.trim();
     if (trimmed === "") continue;
@@ -43,29 +46,9 @@ async function* readJsonLines(): AsyncGenerator<JsonRpcRequest | JsonRpcResponse
   }
 }
 
-// --- console capture ---
-
-const logs: string[] = [];
-const originalConsole = { ...console };
-
-function captureConsole(): void {
-  const capture = (prefix: string) => (...args: unknown[]) => {
-    const msg = args.map(a =>
-      typeof a === "string" ? a : JSON.stringify(a)
-    ).join(" ");
-    logs.push(prefix ? `[${prefix}] ${msg}` : msg);
-  };
-
-  console.log = capture("");
-  console.info = capture("info");
-  console.warn = capture("warn");
-  console.error = capture("error");
-  console.debug = capture("debug");
-}
-
 // --- exec built-in (runs binaries inside the sandbox) ---
 
-async function exec(
+export async function exec(
   cmd: string,
   args: string[],
   opts?: { stdin?: string; timeout?: number },
@@ -93,55 +76,92 @@ async function exec(
   };
 }
 
-// --- tool call proxy ---
+// --- console capture ---
 
-let nextId = 1;
-const pending = new Map<number | string, {
-  resolve: (value: unknown) => void;
-  reject: (error: Error) => void;
-}>();
+export function captureConsole(): { logs: string[]; restore: () => void } {
+  const logs: string[] = [];
+  const original = {
+    log: console.log,
+    info: console.info,
+    warn: console.warn,
+    error: console.error,
+    debug: console.debug,
+  };
+  const capture = (prefix: string) => (...args: unknown[]) => {
+    const msg = args
+      .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+      .join(" ");
+    logs.push(prefix ? `[${prefix}] ${msg}` : msg);
+  };
+  console.log = capture("");
+  console.info = capture("info");
+  console.warn = capture("warn");
+  console.error = capture("error");
+  console.debug = capture("debug");
+  return {
+    logs,
+    restore: () => {
+      console.log = original.log;
+      console.info = original.info;
+      console.warn = original.warn;
+      console.error = original.error;
+      console.debug = original.debug;
+    },
+  };
+}
 
-// stdin reader that dispatches tool call responses to pending promises
-let stdinReader: AsyncGenerator<JsonRpcRequest | JsonRpcResponse> | null = null;
+// --- provider proxy ---
 
-function createProviderProxy(
-  providerName: string,
-  _tools: string[],
-  _positionalArgs: boolean,
+/**
+ * Build a proxy where `proxy.tool(args)` invokes `call(tool, serializedArgs)`.
+ * Decoupled from stdio so it's unit-testable with a stubbed `call`.
+ */
+export function createProviderProxy(
+  positionalArgs: boolean,
+  call: (tool: string, serializedArgs: string) => Promise<unknown>,
 ): Record<string, (...args: unknown[]) => Promise<unknown>> {
   return new Proxy({} as Record<string, (...args: unknown[]) => Promise<unknown>>, {
-    get: (_target, prop: string) => {
+    get: (_target, prop: string | symbol) => {
       if (typeof prop !== "string") return undefined;
       return async (...args: unknown[]) => {
-        const id = nextId++;
-        const serializedArgs = _positionalArgs
+        const serializedArgs = positionalArgs
           ? JSON.stringify(args)
           : JSON.stringify(args[0] ?? {});
-
-        writeLine({
-          jsonrpc: "2.0",
-          method: "tool/call",
-          id,
-          params: {
-            provider: providerName,
-            tool: prop,
-            args: serializedArgs,
-          },
-        });
-
-        // wait for response with matching id
-        return new Promise((resolve, reject) => {
-          pending.set(id, { resolve, reject });
-        });
+        return call(prop, serializedArgs);
       };
     },
   });
 }
 
+// --- code evaluation ---
+
+/**
+ * Evaluate a normalized async-arrow-function code string with the given
+ * globals injected as positional arguments of an AsyncFunction.
+ */
+export async function evaluateCode(
+  code: string,
+  globals: Record<string, unknown>,
+): Promise<{ result: unknown; error?: string }> {
+  try {
+    const argNames = Object.keys(globals);
+    const argValues = Object.values(globals);
+    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+    const fn = new AsyncFunction(...argNames, `return (${code})()`);
+    const result = await fn(...argValues);
+    return { result };
+  } catch (e) {
+    return { result: null, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 // --- main ---
 
 async function main(): Promise<void> {
-  stdinReader = readJsonLines();
+  const { readLines } = await import(
+    "https://deno.land/std@0.224.0/io/read_lines.ts"
+  );
+  const stdinReader = readJsonLines(readLines);
 
   // 1. Read initialize message
   const first = await stdinReader.next();
@@ -166,16 +186,44 @@ async function main(): Promise<void> {
 
   const params = msg.params as InitializeParams;
 
-  // 2. Build globals — exec is always available, providers are proxied
+  // 2. Build tool-call dispatch state
+  let nextId = 1;
+  const pending = new Map<number | string, {
+    resolve: (value: unknown) => void;
+    reject: (error: Error) => void;
+  }>();
+
+  const dispatchToolCall = (
+    providerName: string,
+    tool: string,
+    serializedArgs: string,
+  ): Promise<unknown> => {
+    const id = nextId++;
+    writeLine({
+      jsonrpc: "2.0",
+      method: "tool/call",
+      id,
+      params: { provider: providerName, tool, args: serializedArgs },
+    });
+    return new Promise((resolve, reject) => {
+      pending.set(id, { resolve, reject });
+    });
+  };
+
+  // 3. Build globals — exec is always available, providers are proxied
   const globals: Record<string, unknown> = { exec };
   for (const p of params.providers ?? []) {
-    globals[p.name] = createProviderProxy(p.name, p.tools, p.positionalArgs ?? false);
+    const providerName = p.name;
+    globals[providerName] = createProviderProxy(
+      p.positionalArgs ?? false,
+      (tool, args) => dispatchToolCall(providerName, tool, args),
+    );
   }
 
-  // 3. Start stdin dispatch loop for tool call responses (runs in background)
-  const stdinLoop = (async () => {
-    for await (const msg of stdinReader!) {
-      const resp = msg as JsonRpcResponse;
+  // 4. Start stdin dispatch loop for tool call responses (runs in background)
+  (async () => {
+    for await (const m of stdinReader) {
+      const resp = m as JsonRpcResponse;
       if (resp.id != null && pending.has(resp.id)) {
         const p = pending.get(resp.id)!;
         pending.delete(resp.id);
@@ -188,37 +236,23 @@ async function main(): Promise<void> {
     }
   })();
 
-  // 4. Capture console
-  captureConsole();
+  // 5. Capture console
+  const { logs } = captureConsole();
 
-  // 5. Evaluate the code
-  let result: unknown = null;
-  let error: string | undefined;
+  // 6. Evaluate the code
+  const { result, error } = await evaluateCode(params.code, globals);
 
-  try {
-    // The code is a normalized async arrow function string
-    // Build a function that has provider namespaces in scope
-    const argNames = Object.keys(globals);
-    const argValues = Object.values(globals);
-
-    // Wrap: new AsyncFunction(providerNames..., "return (code)()")
-    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-    const fn = new AsyncFunction(...argNames, `return (${params.code})()`);
-    result = await fn(...argValues);
-  } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
-  }
-
-  // 6. Send result
+  // 7. Send result
   writeLine({
     jsonrpc: "2.0",
     method: "execute/result",
     params: { result: result ?? null, error, logs },
   });
 
-  // 7. Clean up — stop the stdin loop
-  // Force exit since the stdin reader may be blocking
+  // 8. Clean up — stop the stdin loop
   Deno.exit(0);
 }
 
-main();
+if (import.meta.main) {
+  main();
+}
