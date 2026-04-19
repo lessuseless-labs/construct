@@ -1,20 +1,8 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { NixExecutor } from "../src/index.ts";
-import type { ResolvedProvider } from "../src/index.ts";
+import { addProvider, makeExecutor, multiplyProvider, provider } from "./helpers.ts";
 
-const gunPath = process.env.GUN_PATH || undefined;
-const executor = new NixExecutor(gunPath ? { gunPath } : {});
-
-const addProvider: ResolvedProvider = {
-  name: "codemode",
-  fns: {
-    add: async (args: unknown) => {
-      const { a, b } = args as { a: number; b: number };
-      return a + b;
-    },
-  },
-};
+const executor = makeExecutor();
 
 test("simple arithmetic", async () => {
   const r = await executor.execute("async () => 1 + 1", []);
@@ -57,34 +45,22 @@ test("multiple sequential tool calls", async () => {
 });
 
 test("tool error surfaces to caller", async () => {
-  const errorProvider: ResolvedProvider = {
-    name: "codemode",
-    fns: {
-      fail: async () => {
-        throw new Error("tool broke");
-      },
+  const failProvider = provider("codemode", {
+    fail: async () => {
+      throw new Error("tool broke");
     },
-  };
+  });
   const r = await executor.execute(
     'async () => { try { await codemode.fail(); } catch (e) { return e.message; } }',
-    [errorProvider],
+    [failProvider],
   );
   assert.equal(r.result, "tool broke");
 });
 
 test("multiple providers in one script", async () => {
-  const mathProvider: ResolvedProvider = {
-    name: "math",
-    fns: {
-      multiply: async (args: unknown) => {
-        const { a, b } = args as { a: number; b: number };
-        return a * b;
-      },
-    },
-  };
   const r = await executor.execute(
     "async () => { const sum = await codemode.add({ a: 3, b: 4 }); return await math.multiply({ a: sum, b: 2 }); }",
-    [addProvider, mathProvider],
+    [addProvider, multiplyProvider],
   );
   assert.equal(r.result, 14);
 });

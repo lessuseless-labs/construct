@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { NixExecutor, normalizeCode } from "../src/index.ts";
-import type { ResolvedProvider } from "../src/index.ts";
+import { normalizeCode } from "../src/index.ts";
+import { makeExecutor, provider } from "./helpers.ts";
 
-const gunPath = process.env.GUN_PATH || undefined;
-const executor = new NixExecutor(gunPath ? { gunPath } : {});
+const executor = makeExecutor();
 
 test("normalizeCode wraps raw expression in async function", () => {
   const n = normalizeCode("1 + 1");
@@ -37,18 +36,15 @@ test("exec works through normalizeCode wrapping", async () => {
 });
 
 test("provider tools work through normalizeCode", async () => {
-  const provider: ResolvedProvider = {
-    name: "math",
-    fns: {
-      add: async (args: unknown) => {
-        const { a, b } = args as { a: number; b: number };
-        return a + b;
-      },
+  const mathAdd = provider("math", {
+    add: async (args) => {
+      const { a, b } = args as { a: number; b: number };
+      return a + b;
     },
-  };
+  });
   const r = await executor.execute(
     "async () => await math.add({ a: 10, b: 20 })",
-    [provider],
+    [mathAdd],
   );
   assert.equal(r.result, 30);
 });
