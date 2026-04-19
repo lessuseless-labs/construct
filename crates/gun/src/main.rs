@@ -248,3 +248,61 @@ fn is_valid_js_identifier(name: &str) -> bool {
     }
     chars.all(|c| c.is_alphanumeric() || c == '_' || c == '$')
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_identifier_rejected() {
+        assert!(!is_valid_js_identifier(""));
+    }
+
+    #[test]
+    fn simple_name_accepted() {
+        assert!(is_valid_js_identifier("math"));
+        assert!(is_valid_js_identifier("codemode"));
+    }
+
+    #[test]
+    fn underscore_and_dollar_prefix_accepted() {
+        assert!(is_valid_js_identifier("_private"));
+        assert!(is_valid_js_identifier("$jquery"));
+        assert!(is_valid_js_identifier("_"));
+        assert!(is_valid_js_identifier("$"));
+    }
+
+    #[test]
+    fn digit_first_char_rejected() {
+        assert!(!is_valid_js_identifier("1abc"));
+        assert!(!is_valid_js_identifier("9"));
+    }
+
+    #[test]
+    fn digits_allowed_after_first_char() {
+        assert!(is_valid_js_identifier("abc1"));
+        assert!(is_valid_js_identifier("a1b2c3"));
+    }
+
+    #[test]
+    fn hyphens_dots_spaces_rejected() {
+        assert!(!is_valid_js_identifier("my-provider"));
+        assert!(!is_valid_js_identifier("my.provider"));
+        assert!(!is_valid_js_identifier("my provider"));
+        assert!(!is_valid_js_identifier("my/provider"));
+    }
+
+    #[test]
+    fn dangerous_chars_rejected() {
+        assert!(!is_valid_js_identifier("'; drop table"));
+        assert!(!is_valid_js_identifier("provider()"));
+        assert!(!is_valid_js_identifier("provider[0]"));
+        assert!(!is_valid_js_identifier("a\nb"));
+    }
+
+    #[test]
+    fn unicode_letter_accepted() {
+        assert!(is_valid_js_identifier("π"));
+        assert!(is_valid_js_identifier("日本語"));
+    }
+}
