@@ -17,6 +17,9 @@ jobs:
 
       - uses: DeterminateSystems/magic-nix-cache-action@main
 
+      - name: Run Rust unit tests
+        run: nix develop --command cargo test -p gun
+
       - name: Build gun
         run: nix build .#gun-unwrapped
 
