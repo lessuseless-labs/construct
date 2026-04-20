@@ -93,6 +93,8 @@
               wrapProgram $out/bin/gun \
                 --prefix PATH : ${lib.makeBinPath ([ pkgs.deno ] ++ sandboxTools)}
             '';
+            # nix-portable reads meta.mainProgram to pick the entry point
+            meta.mainProgram = "gun";
           };
           # MCP server — standalone node script with gun on PATH
           construct-mcp = pkgs.writeShellScriptBin "construct-mcp" ''
@@ -104,11 +106,9 @@
           # Single-file portable bundle — embeds gun + closure (deno + all
           # sandbox tools) into one self-extracting binary via nix-portable.
           # Linux-only for now; nix-portable's macOS path is flaky.
+          # nix-portable's bundler takes the derivation directly.
           isLinux = lib.hasSuffix "-linux" system;
-          portable = inputs.nix-portable.bundlers.${system}.default {
-            program = "${gun-with-tools}/bin/gun";
-            inherit system;
-          };
+          portable = inputs.nix-portable.bundlers.${system}.default gun-with-tools;
         in
         {
           packages = {
