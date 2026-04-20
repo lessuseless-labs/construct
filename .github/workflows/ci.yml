@@ -41,6 +41,10 @@ jobs:
         working-directory: ts
         run: pnpm install --frozen-lockfile
 
+      - name: Run TS unit tests
+        working-directory: ts
+        run: pnpm test:unit
+
       - name: Run e2e tests
         working-directory: ts
         run: pnpm test
