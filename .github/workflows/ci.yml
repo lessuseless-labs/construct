@@ -72,3 +72,20 @@ jobs:
       - name: Build TypeScript package
         working-directory: ts
         run: pnpm build
+
+      - name: Build portable bundle
+        run: nix build .#portable --out-link result-portable
+
+      - name: Inspect portable bundle
+        run: |
+          ls -la result-portable
+          file result-portable || true
+          du -h result-portable
+
+      - name: Smoke test portable bundle
+        run: |
+          # nix-portable bundles produce a single-file executable. The
+          # entry point is the program we wrapped (gun). Verify it can
+          # at least print its manifest.
+          ./result-portable manifest | head -c 200
+          echo ""

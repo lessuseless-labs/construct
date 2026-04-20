@@ -6,6 +6,7 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     crane.url = "github:ipetkov/crane";
     sandnix.url = "github:srid/sandnix";
+    nix-portable.url = "github:DavHau/nix-portable";
   };
 
   outputs = inputs:
@@ -14,7 +15,7 @@
 
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
 
-      perSystem = { pkgs, lib, ... }:
+      perSystem = { pkgs, lib, system, ... }:
         let
           craneLib = inputs.crane.mkLib pkgs;
 
@@ -99,11 +100,22 @@
             export PATH="${lib.makeBinPath ([ pkgs.deno ] ++ sandboxTools)}:$PATH"
             exec ${pkgs.nodejs_22}/bin/node ${./ts/dist/construct-mcp.js} "$@"
           '';
+
+          # Single-file portable bundle — embeds gun + closure (deno + all
+          # sandbox tools) into one self-extracting binary via nix-portable.
+          # Linux-only for now; nix-portable's macOS path is flaky.
+          isLinux = lib.hasSuffix "-linux" system;
+          portable = inputs.nix-portable.bundlers.${system}.default {
+            program = "${gun-with-tools}/bin/gun";
+            inherit system;
+          };
         in
         {
           packages = {
             inherit gun-unwrapped tool-manifest construct-mcp;
             default = gun-unwrapped;
+          } // lib.optionalAttrs isLinux {
+            inherit portable;
           };
 
           sandnixApps.gun = {
